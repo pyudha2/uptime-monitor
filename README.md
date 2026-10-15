@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Network Uptime Monitor
+
+A small self-hosted dashboard that checks whether your websites and services are reachable, records response time, and shows 24-hour uptime at a glance.
+
+![Dashboard](docs/dashboard-up.png)
+
+## Features
+
+- Add and remove monitors (name + HTTP/HTTPS URL)
+- Automatic check every 60 seconds with a 5 second timeout
+- Per-monitor status, HTTP status code, and latency
+- 24-hour uptime percentage and a history bar of the latest 60 checks
+- Dashboard refreshes itself every 30 seconds
+- Old check history is cleaned up automatically (7 days)
+
+## Tech Stack
+
+- Next.js (App Router) and TypeScript
+- Tailwind CSS
+- Prisma 7 with the MariaDB driver adapter
+- MySQL / MariaDB
 
 ## Getting Started
 
-First, run the development server:
+Requirements: Node.js 20+ and a running MySQL or MariaDB server.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/USERNAME/uptime-monitor.git
+cd uptime-monitor
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Create a `.env` file:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+DATABASE_URL="mysql://root@localhost:3306/uptime_monitor"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create the database, run the migration, and start the app:
 
-## Learn More
+```bash
+mysql -u root -e "CREATE DATABASE uptime_monitor"
+npx prisma migrate dev
+npx prisma generate
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open http://localhost:3000.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tests
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npx tsx --test test/probe.test.ts
+```
 
-## Deploy on Vercel
+The test starts a local HTTP server and verifies the probe against a healthy response, a 500 response, and a closed port.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+prisma/schema.prisma      Monitor and Check models
+src/instrumentation.ts    Starts the 60 second check loop on server start
+src/lib/probe.ts          Single HTTP check (status, latency, timeout)
+src/lib/check.ts          Runs all monitors, stores results, prunes old data
+src/lib/db.ts             Prisma client with MariaDB adapter
+src/app/actions.ts        Server actions: add and remove monitor
+src/app/page.tsx          Dashboard
+src/app/refresher.tsx     Client-side auto refresh
+test/probe.test.ts        Probe test
+```
+
+## How It Works
+
+On server start, `instrumentation.ts` runs `runChecks()` immediately and then every 60 seconds. Each run probes every monitor in parallel, writes one `Check` row per monitor, and deletes rows older than 7 days. The dashboard is a server component that reads the last 24 hours of checks and calculates uptime from them.
+
+## Limitations
+
+- The checker relies on a long-running Node process, so it fits a VPS, Railway, Render, or local use. On Vercel serverless it needs a cron-triggered endpoint instead.
+- There is no authentication. Do not expose it publicly as is, because the server fetches whatever URL is added.
+- HTTP/HTTPS checks only. TCP and ICMP checks are not implemented.
