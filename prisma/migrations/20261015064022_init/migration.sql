@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `check` ADD COLUMN `up` BOOLEAN NOT NULL DEFAULT false;
