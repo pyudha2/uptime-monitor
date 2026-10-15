@@ -19,7 +19,7 @@ model Check {
     id          Int     @id @default(autoincrement())
     monitorId   Int
     monitor     Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
-    ip          Boolean
+    ip          String?
     status      Int?
     ms          Int?
     at          DateTime @default(now())
