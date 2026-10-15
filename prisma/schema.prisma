@@ -1,0 +1,28 @@
+generator client {
+    provider = "prisma-client"
+    output = "../generated/prisma"
+}
+
+datasource db {
+    provider = "mysql"
+}
+
+model Monitor {
+    id          Int      @id @default(autoincrement())
+    name        String
+    url         String
+    createAt    DateTime @default(now())
+    checks      Check[]
+}
+
+model Check {
+    id          Int     @id @default(autoincrement())
+    monitorId   Int
+    monitor     Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+    ip          Boolean
+    status      Int?
+    ms          Int?
+    at          DateTime @default(now())
+
+    @@index([monitorId, at])
+}
